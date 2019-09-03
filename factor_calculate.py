@@ -104,9 +104,6 @@ class Data:
             "bias_turn_1m", "bias_turn_3m", "bias_turn_6m", "bias_turn_12m",
             "holder_avgpctchange",
             ]
-    
-    cal_target_indicators_M = cal_target_indicators[:]
-    cal_target_indicators_M.extend(["M_reverse_20", "M_reverse_60", "M_reverse_180"])
         
     tech_indicators = [
             "MACD", "RSI", "PSY", "BIAS"
@@ -746,7 +743,6 @@ class FactorProcess:
             "turn_1m", "turn_3m", "turn_6m", "turn_12m", 
             "bias_turn_1m", "bias_turn_3m", "bias_turn_6m", "bias_turn_12m", 
             "holder_avgpctchange"
-            "M_reverse_20", "M_reverse_60", "M_reverse_180"
         """
         tdate = pd.to_datetime(tdate)
         dat = pd.DataFrame(index=stocks)
@@ -766,39 +762,7 @@ class FactorProcess:
         
         dat = reduce(self.concat_df, [dat, dat1, dat2, dat3])
         dat = dat[self.cal_target_indicators]
-        if self.updatefreq == 'M':
-            dat4 = self._get_reverse_data(stocks, tdate, self.dates_d, params=[20,60,180])
-            dat = reduce(self.concat_df, [dat, dat4])
-            dat = dat[self.cal_target_indicators_M]
         return dat
-
-    def _get_reverse_data(self, stocks, qdate, dates, params=(20, 60, 180)):
-        amt_per_deal = self.amt_per_deal
-        pct_chg = self.pct_chg
-        datelist = sorted(amt_per_deal.columns.intersection(set(dates)))
-        res = pd.DataFrame(index=stocks)
-        for offset in params:
-            idx = self._get_date_idx(qdate, datelist)
-            start_idx, end_idx = max(idx-offset+1, 0), idx+1
-            dat = amt_per_deal.iloc[:, start_idx: end_idx]
-            dat = dat.dropna(how='all', axis=0)
-            
-            res[f'M_reverse_{offset}'] = dat.apply(self._cal_M_reverse, axis=1, args=(pct_chg,))
-        return res
-    
-    @staticmethod
-    def _cal_M_reverse(series, pct_chg=None):
-        code = series.name
-        series = series.dropna()
-        series = series.sort_values()
-        if len(series) % 2 == 1:
-            low_vals = series.iloc[:len(series)//2+1]
-        else:
-            low_vals = series.iloc[:len(series)//2]
-        high_vals = series.iloc[len(series)//2:]
-        M_high = (pct_chg.loc[code, high_vals.index] + 1).cumprod().iloc[-1] - 1
-        M_low = (pct_chg.loc[code, low_vals.index] + 1).cumprod().iloc[-1] - 1
-        return M_high - M_low
     
     def _get_tech_data(self, stocks, tdate):
         """
